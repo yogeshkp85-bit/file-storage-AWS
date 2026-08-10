@@ -60,12 +60,67 @@ const initialFiles: BackupFile[] = [
 
 const fileIcon = { document: FileText, image: FileImage, spreadsheet: FileSpreadsheet, archive: FileArchive }
 
-async function fetchFiles(): Promise<BackupFile[]> { return initialFiles }
-async function uploadFile(file: File): Promise<BackupFile> {
-  return { id: crypto.randomUUID(), name: file.name, type: file.name.endsWith('.zip') ? 'archive' : 'document', size: `${Math.max(1, Math.round(file.size / 1024 / 1024))} MB`, date: 'Just now', status: 'In progress' }
+async function fetchFiles(): Promise<BackupFile[]> {
+  const res = await fetch('/api/files')
+  if (!res.ok) throw new Error('Failed to fetch files')
+  const data = await res.json()
+  return data.map((f: any) => ({
+    id: f.file_id,
+    name: f.name,
+    type: f.type,
+    size: f.size,
+    date: new Date(f.upload_date).toLocaleDateString() + ', ' + new Date(f.upload_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+    status: f.status
+  }))
 }
-async function downloadFile(file: BackupFile) { return file }
-async function deleteFile(file: BackupFile) { return file }
+
+async function uploadFile(file: File): Promise<BackupFile> {
+  const file_id = crypto.randomUUID()
+  
+  // 1. Get presigned URL
+  const res = await fetch('/api/files', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      file_id
+    })
+  })
+  
+  if (!res.ok) throw new Error('Failed to initialize upload')
+  const { uploadUrl, file: newFile } = await res.json()
+  
+  // 2. Upload file to S3
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream'
+    },
+    body: file
+  })
+  
+  if (!uploadRes.ok) throw new Error('Failed to upload file to S3')
+  
+  return newFile
+}
+
+async function downloadFile(file: BackupFile) {
+  const res = await fetch(`/api/files/${file.id}`)
+  if (!res.ok) throw new Error('Failed to get download URL')
+  const { downloadUrl } = await res.json()
+  
+  // Trigger download
+  window.open(downloadUrl, '_blank')
+  return file
+}
+
+async function deleteFile(file: BackupFile) {
+  const res = await fetch(`/api/files/${file.id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete file')
+  return file
+}
 
 function Logo() {
   return <div className="flex items-center gap-2.5"><div className="flex size-8 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><Cloud className="size-4" /></div><span className="font-semibold tracking-tight text-sidebar-foreground">CloudVault</span></div>
