@@ -4,29 +4,39 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ScanCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { isLocalMode, readDb, writeDb } from '@/lib/local-db';
+import { verifyToken } from '@/lib/auth';
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'cloudvault-storage';
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'CloudVaultFiles';
 
-// In a real app, this would come from the authenticated user's session
-const MOCK_USER_ID = 'user_123';
+// Helper to extract user ID from auth token or fallback to local user ID
+async function getUserId(request: Request): Promise<string> {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    const user = await verifyToken(authHeader);
+    if (user) return user.userId;
+  }
+  return 'user_123';
+}
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const userId = await getUserId(request);
+
     if (isLocalMode()) {
       const db = readDb();
       const files = db.files
-        .filter((f: any) => f.user_id === MOCK_USER_ID && f.status !== 'deleted')
+        .filter((f: any) => f.user_id === userId && f.status !== 'deleted')
         .sort((a: any, b: any) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime());
       return NextResponse.json(files);
     }
 
-    // Note: In production with many users, use QueryCommand with user_id instead of Scan
+    // Query DynamoDB for files belonging to the authenticated user
     const command = new ScanCommand({
       TableName: TABLE_NAME,
       FilterExpression: 'user_id = :userId AND #status <> :deletedStatus',
       ExpressionAttributeValues: {
-        ':userId': MOCK_USER_ID,
+        ':userId': userId,
         ':deletedStatus': 'deleted'
       },
       ExpressionAttributeNames: {
@@ -50,13 +60,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const userId = await getUserId(request);
     const { name, type, size, file_id } = await request.json();
 
     if (!name || !size || !file_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const s3Key = `${MOCK_USER_ID}/${file_id}/${name}`;
+    const s3Key = `${userId}/${file_id}/${name}`;
     const dateStr = new Date().toISOString();
     
     // Determine internal type string based on extension or mime type
@@ -66,7 +77,7 @@ export async function POST(request: Request) {
     else if (name.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null) fileType = 'image';
 
     const fileRecord = {
-      user_id: MOCK_USER_ID,
+      user_id: userId,
       file_id,
       name,
       s3_key: s3Key,

@@ -4,19 +4,29 @@ import { GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetCommand, DeleteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { isLocalMode, readDb, writeDb } from '@/lib/local-db';
+import { verifyToken } from '@/lib/auth';
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'cloudvault-storage';
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'CloudVaultFiles';
-const MOCK_USER_ID = 'user_123';
+
+async function getUserId(request: Request): Promise<string> {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    const user = await verifyToken(authHeader);
+    if (user) return user.userId;
+  }
+  return 'user_123';
+}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const userId = await getUserId(request);
     const resolvedParams = await params;
     const fileId = resolvedParams.id;
 
     if (isLocalMode()) {
       const db = readDb();
-      const fileRecord = db.files.find((f: any) => f.file_id === fileId && f.user_id === MOCK_USER_ID);
+      const fileRecord = db.files.find((f: any) => f.file_id === fileId && f.user_id === userId);
       
       if (!fileRecord) {
         return NextResponse.json({ error: 'File not found' }, { status: 404 });
@@ -34,7 +44,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const getDbCommand = new GetCommand({
       TableName: TABLE_NAME,
       Key: {
-        user_id: MOCK_USER_ID,
+        user_id: userId,
         file_id: fileId
       }
     });
@@ -64,12 +74,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const userId = await getUserId(request);
     const resolvedParams = await params;
     const fileId = resolvedParams.id;
 
     if (isLocalMode()) {
       const db = readDb();
-      const index = db.files.findIndex((f: any) => f.file_id === fileId && f.user_id === MOCK_USER_ID);
+      const index = db.files.findIndex((f: any) => f.file_id === fileId && f.user_id === userId);
       
       if (index === -1) {
         return NextResponse.json({ error: 'File not found' }, { status: 404 });
@@ -80,7 +91,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       
       db.events.push({
         id: crypto.randomUUID(),
-        user: 'Jordan Davis',
+        user: 'User ' + userId,
         action: `deleted ${fileRecord.name}`,
         date: new Date().toISOString(),
         type: 'delete'
@@ -94,7 +105,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const getDbCommand = new GetCommand({
       TableName: TABLE_NAME,
       Key: {
-        user_id: MOCK_USER_ID,
+        user_id: userId,
         file_id: fileId
       }
     });
@@ -108,7 +119,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const updateCommand = new UpdateCommand({
       TableName: TABLE_NAME,
       Key: {
-        user_id: MOCK_USER_ID,
+        user_id: userId,
         file_id: fileId
       },
       UpdateExpression: 'SET #status = :deletedStatus',
