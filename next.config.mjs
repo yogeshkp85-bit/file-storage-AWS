@@ -17,6 +17,7 @@ const nextConfig = {
     DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || "",
     COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID || process.env.MY_COGNITO_USER_POOL_ID || "eu-north-1_7BtTwlPZ1",
     COGNITO_CLIENT_ID: clientId,
+    COGNITO_REGION: "eu-north-1",
   }
 }
 
