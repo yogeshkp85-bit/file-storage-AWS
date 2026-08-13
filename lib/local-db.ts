@@ -22,6 +22,10 @@ export function writeDb(data: any) {
 }
 
 export function isLocalMode() {
-  // If no access key is provided, we use local mode
-  return !process.env.AWS_ACCESS_KEY_ID;
+  // In production deployments (Amplify / Vercel), never fall back to local mode
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+    return false;
+  }
+  // Otherwise check if standard or custom access key ID is set
+  return !process.env.AWS_ACCESS_KEY_ID && !process.env.MY_AWS_ACCESS_KEY_ID;
 }

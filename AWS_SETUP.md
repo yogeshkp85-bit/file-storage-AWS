@@ -153,10 +153,13 @@ Now that the application works locally with your AWS resources, you are ready to
 2. Click **Create new app**.
 3. Connect your repository (GitHub, GitLab, AWS CodeCommit, etc.) containing this project.
 4. Amplify will automatically detect it as a Next.js application. Click **Next**.
-5. Under **Environment variables**, click **Add variable** and insert the exact keys we set in your `.env.local`:
-   * `AWS_REGION` = `eu-north-1`
-   * `AWS_ACCESS_KEY_ID` = `YOUR_AWS_ACCESS_KEY_ID`
-   * `AWS_SECRET_ACCESS_KEY` = `YOUR_AWS_SECRET_ACCESS_KEY`
+5. Under **Environment variables**, click **Add variable** and insert your configuration keys.
+   > [!IMPORTANT]
+   > AWS Amplify reserves variables starting with `AWS_` prefix for internal system build processes. 
+   > To bypass this restriction, use the custom `MY_AWS_` prefix variables we added to the codebase:
+   * `MY_AWS_REGION` = `eu-north-1`
+   * `MY_AWS_ACCESS_KEY_ID` = `YOUR_AWS_ACCESS_KEY_ID`
+   * `MY_AWS_SECRET_ACCESS_KEY` = `YOUR_AWS_SECRET_ACCESS_KEY`
    * `S3_BUCKET_NAME` = `cloudvault-storage-divya-5678-600159355341-eu-north-1-an`
    * `DYNAMODB_TABLE_NAME` = `CloudVaultFiles1`
 6. Click **Save and deploy**. Amplify will build the application and provide a secure, HTTPS live URL!
@@ -165,5 +168,5 @@ Now that the application works locally with your AWS resources, you are ready to
 1. Go to [vercel.com](https://vercel.com) and sign in.
 2. Click **Add New** -> **Project**.
 3. Import your Git repository.
-4. Expand the **Environment Variables** section and copy-paste the environment variables listed above.
+4. Expand the **Environment Variables** section and copy-paste the environment variables (you can use either the standard `AWS_` prefix or custom `MY_AWS_` prefix here!).
 5. Click **Deploy**. Vercel will deploy the application in under 2 minutes and give you a live URL!
