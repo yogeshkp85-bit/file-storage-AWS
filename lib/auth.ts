@@ -1,6 +1,5 @@
 const REGION = "eu-north-1";
-const rawClientId = process.env.COGNITO_CLIENT_ID || process.env.MY_COGNITO_CLIENT_ID;
-const CLIENT_ID = (!rawClientId || rawClientId === "1t00oa7ldts3m16hk4nqkftd6g") ? "7jm7s8eqcs0qtm42dciaqq7bch" : rawClientId;
+const CLIENT_ID = "7jm7s8eqcs0qtm42dciaqq7bch";
 
 export type AuthUser = {
   userId: string;
