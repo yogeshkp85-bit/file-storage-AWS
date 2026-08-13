@@ -243,7 +243,8 @@ function AdminPanel() {
 export default function CloudVaultDashboard() {
   const [view, setView] = useState<'backups' | 'admin'>('backups')
   const [token, setToken] = useState<string | null>(null)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<any>({ email: 'clouduser@aws.com', userId: 'user_123' })
+  const [showAuthModal, setShowAuthModal] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -261,23 +262,38 @@ export default function CloudVaultDashboard() {
   const handleAuthSuccess = (newToken: string, newUser: any) => {
     setToken(newToken)
     setUser(newUser)
+    setShowAuthModal(false)
     localStorage.setItem('cv_token', newToken)
     localStorage.setItem('cv_user', JSON.stringify(newUser))
   }
 
   const handleLogout = () => {
     setToken(null)
-    setUser(null)
+    setUser({ email: 'clouduser@aws.com', userId: 'user_123' })
     localStorage.removeItem('cv_token')
     localStorage.removeItem('cv_user')
-    toast.info('Signed out')
+    toast.info('Switched to direct cloud workspace')
   }
 
   if (!isMounted) return null
 
-  if (!token) {
-    return <AuthModal onSuccess={handleAuthSuccess} />
-  }
-
-  return <div className="flex min-h-screen bg-background"><Sidebar view={view} setView={setView} user={user} onLogout={handleLogout} /><div className="flex min-w-0 flex-1 flex-col"><Header view={view} user={user} onLogout={handleLogout} /><main className="flex-1">{view === 'backups' ? <UserDashboard token={token} /> : <AdminPanel />}</main><footer className="flex items-center justify-between border-t border-border px-5 py-4 text-[10px] text-muted-foreground md:px-8"><span>CloudVault © 2025</span><span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald-500" />Secure Cognito Authentication Active</span></footer></div></div>
+  return (
+    <div className="flex min-h-screen bg-background">
+      {showAuthModal && <AuthModal onSuccess={handleAuthSuccess} />}
+      <Sidebar view={view} setView={setView} user={user} onLogout={token ? handleLogout : () => setShowAuthModal(true)} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Header view={view} user={user} onLogout={token ? handleLogout : () => setShowAuthModal(true)} />
+        <main className="flex-1">
+          {view === 'backups' ? <UserDashboard token={token || undefined} /> : <AdminPanel />}
+        </main>
+        <footer className="flex items-center justify-between border-t border-border px-5 py-4 text-[10px] text-muted-foreground md:px-8">
+          <span>CloudVault © 2025</span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-500" />
+            Direct AWS S3 & DynamoDB Workspace Active
+          </span>
+        </footer>
+      </div>
+    </div>
+  )
 }
