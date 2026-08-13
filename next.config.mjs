@@ -13,7 +13,7 @@ const nextConfig = {
     S3_BUCKET_NAME: process.env.S3_BUCKET_NAME || "",
     DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || "",
     COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID || process.env.MY_COGNITO_USER_POOL_ID || "eu-north-1_7BtTwlPZ1",
-    COGNITO_CLIENT_ID: process.env.COGNITO_CLIENT_ID || process.env.MY_COGNITO_CLIENT_ID || "1t00oa7ldts3m16hk4nqkftd6g",
+    COGNITO_CLIENT_ID: process.env.COGNITO_CLIENT_ID || process.env.MY_COGNITO_CLIENT_ID || "7jm7s8eqcs0qtm42dciaqq7bch",
   }
 }
 

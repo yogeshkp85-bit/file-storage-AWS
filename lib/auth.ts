@@ -1,5 +1,5 @@
 const REGION = process.env.AWS_REGION || process.env.MY_AWS_REGION || "eu-north-1";
-const CLIENT_ID = process.env.COGNITO_CLIENT_ID || process.env.MY_COGNITO_CLIENT_ID || "1t00oa7ldts3m16hk4nqkftd6g";
+const CLIENT_ID = process.env.COGNITO_CLIENT_ID || process.env.MY_COGNITO_CLIENT_ID || "7jm7s8eqcs0qtm42dciaqq7bch";
 
 export type AuthUser = {
   userId: string;
