@@ -68,6 +68,7 @@ def lambda_handler(event, context):
                 # 2. Delete from DynamoDB
                 table.delete_item(
                     Key={
+                        'user_id': item.get('user_id'),
                         'file_id': file_id
                     }
                 )

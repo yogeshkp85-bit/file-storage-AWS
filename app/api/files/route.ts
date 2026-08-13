@@ -3,6 +3,7 @@ import { s3Client, docClient } from '@/lib/aws';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ScanCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { isLocalMode, readDb, writeDb } from '@/lib/local-db';
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'cloudvault-storage';
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'CloudVaultFiles';
@@ -12,6 +13,14 @@ const MOCK_USER_ID = 'user_123';
 
 export async function GET() {
   try {
+    if (isLocalMode()) {
+      const db = readDb();
+      const files = db.files
+        .filter((f: any) => f.user_id === MOCK_USER_ID && f.status !== 'deleted')
+        .sort((a: any, b: any) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime());
+      return NextResponse.json(files);
+    }
+
     // Note: In production with many users, use QueryCommand with user_id instead of Scan
     const command = new ScanCommand({
       TableName: TABLE_NAME,
@@ -48,18 +57,6 @@ export async function POST(request: Request) {
     }
 
     const s3Key = `${MOCK_USER_ID}/${file_id}/${name}`;
-
-    // 1. Generate Pre-signed URL for S3 Upload
-    const putCommand = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: s3Key,
-      ContentType: type || 'application/octet-stream',
-    });
-
-    // URL expires in 1 hour
-    const uploadUrl = await getSignedUrl(s3Client, putCommand, { expiresIn: 3600 });
-
-    // 2. Save metadata to DynamoDB
     const dateStr = new Date().toISOString();
     
     // Determine internal type string based on extension or mime type
@@ -77,15 +74,43 @@ export async function POST(request: Request) {
       size: formatBytes(size),
       size_bytes: size,
       upload_date: dateStr,
-      status: 'Completed', // Ideally 'In progress' then update via webhook/lambda, but we assume success here
+      status: 'Completed', 
     };
 
-    const putDbCommand = new PutCommand({
-      TableName: TABLE_NAME,
-      Item: fileRecord,
-    });
+    let uploadUrl = '';
 
-    await docClient.send(putDbCommand);
+    if (isLocalMode()) {
+      const db = readDb();
+      db.files.push(fileRecord);
+      // Log event
+      db.events.push({
+        id: crypto.randomUUID(),
+        user: 'Jordan Davis',
+        action: `uploaded ${name}`,
+        date: dateStr,
+        type: 'upload'
+      });
+      writeDb(db);
+      
+      const host = request.headers.get('host') || 'localhost:4000';
+      const protocol = host.includes('localhost') ? 'http' : 'https';
+      uploadUrl = `${protocol}://${host}/api/files/local-upload?file_id=${file_id}&name=${encodeURIComponent(name)}`;
+    } else {
+      // 1. Generate Pre-signed URL for S3 Upload
+      const putCommand = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: s3Key,
+        ContentType: type || 'application/octet-stream',
+      });
+      uploadUrl = await getSignedUrl(s3Client, putCommand, { expiresIn: 3600 });
+
+      // 2. Save metadata to DynamoDB
+      const putDbCommand = new PutCommand({
+        TableName: TABLE_NAME,
+        Item: fileRecord,
+      });
+      await docClient.send(putDbCommand);
+    }
 
     return NextResponse.json({ 
       uploadUrl, 
