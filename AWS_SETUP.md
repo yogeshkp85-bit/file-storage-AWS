@@ -170,3 +170,4 @@ Now that the application works locally with your AWS resources, you are ready to
 3. Import your Git repository.
 4. Expand the **Environment Variables** section and copy-paste the environment variables (you can use either the standard `AWS_` prefix or custom `MY_AWS_` prefix here!).
 5. Click **Deploy**. Vercel will deploy the application in under 2 minutes and give you a live URL!
+
