@@ -1,11 +1,23 @@
+import crypto from 'crypto';
+
 const REGION = "eu-north-1";
-const CLIENT_ID = "7jm7s8eqcs0qtm42dciaqq7bch";
+const CLIENT_ID = process.env.COGNITO_CLIENT_ID || process.env.MY_COGNITO_CLIENT_ID || "7jm7s8eqcs0qtm42dciaqq7bch";
+const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET || process.env.MY_COGNITO_CLIENT_SECRET || "d91lbfs9a5v3eu8nmevcd8lvgobetut9539nh3d67fe970jpvv1";
 
 export type AuthUser = {
   userId: string;
   email: string;
   username: string;
 };
+
+// Calculate HMAC-SHA256 SecretHash required by AWS Cognito for clients with secrets
+function calculateSecretHash(username: string): string | undefined {
+  if (!CLIENT_SECRET) return undefined;
+  return crypto
+    .createHmac('sha256', CLIENT_SECRET)
+    .update(username + CLIENT_ID)
+    .digest('base64');
+}
 
 // Helper to make raw HTTP requests to AWS Cognito Identity Provider Service
 async function cognitoRequest(operation: string, payload: Record<string, any>) {
@@ -55,10 +67,12 @@ export async function verifyToken(accessToken: string): Promise<AuthUser | null>
 
 // User Sign Up
 export async function signUpUser(email: string, password: string) {
+  const secretHash = calculateSecretHash(email);
   return cognitoRequest('SignUp', {
     ClientId: CLIENT_ID,
     Username: email,
     Password: password,
+    ...(secretHash ? { SecretHash: secretHash } : {}),
     UserAttributes: [
       { Name: 'email', Value: email }
     ]
@@ -67,22 +81,30 @@ export async function signUpUser(email: string, password: string) {
 
 // Confirm Sign Up with verification code
 export async function confirmSignUpUser(email: string, code: string) {
+  const secretHash = calculateSecretHash(email);
   return cognitoRequest('ConfirmSignUp', {
     ClientId: CLIENT_ID,
     Username: email,
-    ConfirmationCode: code
+    ConfirmationCode: code,
+    ...(secretHash ? { SecretHash: secretHash } : {})
   });
 }
 
 // User Sign In
 export async function signInUser(email: string, password: string) {
+  const secretHash = calculateSecretHash(email);
+  const authParams: Record<string, string> = {
+    USERNAME: email,
+    PASSWORD: password
+  };
+  if (secretHash) {
+    authParams['SECRET_HASH'] = secretHash;
+  }
+
   const res = await cognitoRequest('InitiateAuth', {
     ClientId: CLIENT_ID,
     AuthFlow: 'USER_PASSWORD_AUTH',
-    AuthParameters: {
-      USERNAME: email,
-      PASSWORD: password
-    }
+    AuthParameters: authParams
   });
 
   return {
