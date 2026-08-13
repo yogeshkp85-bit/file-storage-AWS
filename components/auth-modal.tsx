@@ -13,15 +13,22 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ onSuccess }: AuthModalProps) {
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const switchMode = (newMode: AuthMode) => {
+    setErrorMsg(null);
+    setMode(newMode);
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
 
     try {
       if (mode === 'login') {
@@ -52,7 +59,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
         if (!res.ok) throw new Error(data.error || 'Registration failed');
 
         toast.success('Account created! Please check your email for the verification code.');
-        setMode('confirm');
+        switchMode('confirm');
       } else if (mode === 'confirm') {
         const res = await fetch('/api/auth/confirm', {
           method: 'POST',
@@ -63,10 +70,12 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
         if (!res.ok) throw new Error(data.error || 'Verification failed');
 
         toast.success('Email verified! You can now log in.');
-        setMode('login');
+        switchMode('login');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Authentication error');
+      const msg = err.message || 'Authentication error';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -94,6 +103,13 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
 
         {/* Form Body */}
         <form onSubmit={handleAuth} className="p-6 space-y-4">
+          {errorMsg && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive flex items-start gap-2">
+              <span className="font-semibold shrink-0">Error:</span>
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           {mode !== 'confirm' ? (
             <>
               <div>
@@ -118,13 +134,18 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
                   <Input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="pl-9 text-sm"
                   />
                 </div>
+                {mode === 'signup' && (
+                  <p className="mt-1.5 text-[10px] text-muted-foreground">
+                    Must be at least 8 characters with 1 uppercase letter, 1 number, and 1 special symbol.
+                  </p>
+                )}
               </div>
             </>
           ) : (
@@ -163,7 +184,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
           {mode === 'login' && (
             <p>
               Don't have an account?{' '}
-              <button onClick={() => setMode('signup')} className="font-semibold text-primary hover:underline">
+              <button onClick={() => switchMode('signup')} className="font-semibold text-primary hover:underline">
                 Create one now
               </button>
             </p>
@@ -171,7 +192,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
           {mode === 'signup' && (
             <p>
               Already have an account?{' '}
-              <button onClick={() => setMode('login')} className="font-semibold text-primary hover:underline">
+              <button onClick={() => switchMode('login')} className="font-semibold text-primary hover:underline">
                 Sign in
               </button>
             </p>
@@ -179,7 +200,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
           {mode === 'confirm' && (
             <p>
               Didn't receive a code?{' '}
-              <button onClick={() => setMode('signup')} className="font-semibold text-primary hover:underline">
+              <button onClick={() => switchMode('signup')} className="font-semibold text-primary hover:underline">
                 Try registering again
               </button>
             </p>
